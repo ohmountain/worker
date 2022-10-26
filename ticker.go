@@ -2,7 +2,6 @@ package worker
 
 import (
 	"context"
-	"log"
 	"sync"
 	"time"
 )
@@ -46,31 +45,31 @@ func (c *_tickerWorker) run(ctx context.Context) {
 		select {
 
 		case <-ctx.Done():
-			{
-				log.Printf("stop from ctx")
-				c.ticker.Stop()
-				c.Stop()
-			}
+			c.ticker.Stop()
+			c.Stop()
 
 		case <-c.stop:
-			log.Printf("stop from chan")
 			return
 
 		case <-c.ticker.C:
-			{
-				if c.status != Running {
-					continue
-				}
-				go c.runner()
+			if c.status != Running {
+				continue
 			}
+			go c.runner()
 		}
 	}
 }
 
+// Status
+// 返回当前Worker的状态
 func (c *_tickerWorker) Status() Status {
 	return c.status
 }
 
+// Run
+// 运行当前Worker
+// 注意：这是异步的，
+// 如果要停止这个Worker，可以使用ctx来停止，也可注意主动调用Stop来停止
 func (c *_tickerWorker) Run(ctx context.Context) {
 	if c.status == Running {
 		return
@@ -80,35 +79,36 @@ func (c *_tickerWorker) Run(ctx context.Context) {
 	go c.run(ctx)
 }
 
+// Pause
+// 暂停当前Workekr
 func (c *_tickerWorker) Pause() error {
 	if c.status != Running {
 		return ERR_NOT_RUNNING
 	}
 
 	c.setStatus(Paused)
-
 	return nil
 }
 
+// Resume
+// 从暂停状态中恢复运行
 func (c *_tickerWorker) Resume() error {
 	if c.status != Paused {
 		return ERR_NOT_PAUSED
 	}
 
 	c.setStatus(Running)
-
 	return nil
 }
 
+// Resume
+// 停止掉Worker
 func (c *_tickerWorker) Stop() error {
 	if c.status != Running {
 		return ERR_NOT_RUNNING
 	}
 
 	c.setStatus(Stopped)
-	log.Printf("Send stop chan")
 	c.stop <- struct{}{}
-	log.Printf("Send stop chan done")
-
 	return nil
 }
