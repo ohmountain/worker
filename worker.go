@@ -56,5 +56,21 @@ type EventWorker[T any] interface {
 	Invoke(data T) error
 }
 
+type PubSubWorker[T any] interface {
+	Worker
+
+	// Pub
+	// 推送订阅数据
+	Pub(data T) error
+
+	// Sub
+	// 订阅数据
+	Sub(fn RunnerFuncT[T]) string
+
+	// UnSub
+	// 停止订阅
+	UnSub(sub string)
+}
+
 type RunnerFunc func()
 type RunnerFuncT[T any] func(data T)

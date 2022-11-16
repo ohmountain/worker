@@ -59,3 +59,24 @@ func TestTickerWorker(t *testing.T) {
 
 	t.Logf("Done all")
 }
+
+func TestPubSubWorker(t *testing.T) {
+	wk := NewPubSubWorker[string]()
+	ctx, cf := context.WithCancel(context.Background())
+
+	wk.Run(ctx)
+
+	for i := 0; i < 10; i++ {
+		func(x int) {
+			wk.Sub(func(data string) {
+				t.Logf("%d - Receive: %s", x, data)
+			})
+		}(i)
+	}
+
+	wk1 := NewTickerWorker(*time.NewTicker(2 * time.Second), func() { wk.Pub(time.Now().String()) })
+	wk1.Run(ctx)
+
+	time.Sleep(100 * time.Second)
+	cf()
+}
