@@ -10,7 +10,7 @@ import (
 // 创建一个定时器的worker
 // @param ticker time.Ticker, 定时器
 // @param runner RunnerFunc， 定时运行的函数
-func NewTickerWorker(ticker time.Ticker, runner RunnerFunc) *_tickerWorker {
+func NewTickerWorker(ticker *time.Ticker, runner RunnerFunc) *_tickerWorker {
 	return &_tickerWorker{
 		mu:     sync.Mutex{},
 		status: Stopped,
@@ -29,7 +29,7 @@ type _tickerWorker struct {
 	status Status
 	runner RunnerFunc
 
-	ticker time.Ticker
+	ticker *time.Ticker
 }
 
 func (c *_tickerWorker) setStatus(status Status) {
@@ -55,7 +55,13 @@ func (c *_tickerWorker) run(ctx context.Context) {
 			if c.status != Running {
 				continue
 			}
-			go c.runner()
+
+			func() {
+				defer func() {
+					recover()
+				}()
+				c.runner()
+			}()
 		}
 	}
 }

@@ -6,8 +6,6 @@ import (
 	"sync"
 )
 
-var paralles = runtime.NumCPU() * 2
-
 type _pubsubWorker[T any] struct {
 	mu sync.Mutex
 
@@ -36,7 +34,7 @@ func NewPubSubWorker[T any]() *_pubsubWorker[T] {
 		stop:     make(chan struct{}, 1),
 		cur:      0,
 		subs:     make(map[int]RunnerFuncT[T]),
-		paralles: make(chan struct{}, paralles),
+		paralles: make(chan struct{}, runtime.NumCPU()*2),
 	}
 }
 
@@ -64,10 +62,16 @@ func (c *_pubsubWorker[T]) run(ctx context.Context) {
 // 执行函数
 // 这个执行函数通过通道限制同时执行的数量
 func (c *_pubsubWorker[T]) pub(fn RunnerFuncT[T], data T, wg *sync.WaitGroup) {
+
+	// recover 防止因为某个订阅函数导致所有订阅函数无法执行
+	defer func() {
+		recover()
+		<-c.paralles
+		wg.Done()
+	}()
+
 	c.paralles <- struct{}{}
 	fn(data)
-	<-c.paralles
-	wg.Done()
 }
 
 // Status
@@ -113,7 +117,7 @@ func (c *_pubsubWorker[T]) Resume() error {
 	return nil
 }
 
-// Resume
+// Stop
 // 停止掉Worker
 func (c *_pubsubWorker[T]) Stop() error {
 	if c.status != Running {
@@ -126,6 +130,8 @@ func (c *_pubsubWorker[T]) Stop() error {
 	return nil
 }
 
+// Pub
+// 发布消息
 func (c *_pubsubWorker[T]) Pub(data T) error {
 	if c.status != Running {
 		return ERR_NOT_RUNNING
@@ -144,7 +150,6 @@ func (c *_pubsubWorker[T]) Pub(data T) error {
 // Sub
 // 订阅这个Worker的数据
 func (c *_pubsubWorker[T]) Sub(fn RunnerFuncT[T]) int {
-
 	c.mu.Lock()
 	c.cur++
 	c.subs[c.cur] = fn

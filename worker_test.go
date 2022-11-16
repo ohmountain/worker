@@ -39,7 +39,7 @@ func TestTickerWorker(t *testing.T) {
 	now := time.Now().Unix()
 	ctx, cf := context.WithCancel(context.Background())
 	var wk TickerWorker
-	wk = NewTickerWorker(*time.NewTicker(1 * time.Second), func() {
+	wk = NewTickerWorker(time.NewTicker(1*time.Second), func() {
 		duration := time.Now().Unix() - now
 		switch duration {
 		case 3:
@@ -47,6 +47,8 @@ func TestTickerWorker(t *testing.T) {
 			timer := time.NewTimer(2 * time.Second)
 			<-timer.C
 			wk.Resume()
+		case 2:
+			panic("smt err") // 即使panic,也不影响worker继续执行
 		case 10:
 			cf()
 		default:
@@ -66,17 +68,22 @@ func TestPubSubWorker(t *testing.T) {
 
 	wk.Run(ctx)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 44; i++ {
 		func(x int) {
 			wk.Sub(func(data string) {
 				t.Logf("%d - Receive: %s", x, data)
+				panic("got error")
 			})
 		}(i)
 	}
 
-	wk1 := NewTickerWorker(*time.NewTicker(2 * time.Second), func() { wk.Pub(time.Now().String()) })
+	ticker := time.NewTicker(2 * time.Second)
+	wk1 := NewTickerWorker(ticker, func() {
+		wk.Pub(time.Now().String())
+	})
 	wk1.Run(ctx)
 
-	time.Sleep(100 * time.Second)
+	<-ticker.C
+	time.Sleep(time.Second * 10)
 	cf()
 }

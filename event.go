@@ -47,10 +47,15 @@ func (c *_eventWorker[T]) run(ctx context.Context) {
 		case <-c.stop:
 			return
 		case data := <-c.receiver:
-			c.runner(data)
+			func() {
+				// recover if panic
+				defer func() {
+					recover()
+				}()
+				c.runner(data)
+			}()
 		}
 	}
-
 }
 
 // Status
